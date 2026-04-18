@@ -1,5 +1,9 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
     const tokenRes = await fetch('https://cimerian.my3cx.com.br/connect/token', {
@@ -14,19 +18,19 @@ export default async function handler(req, res) {
 
     const { access_token } = await tokenRes.json();
 
-    // Pega o metadata completo para achar o endpoint de call log
-    const r = await fetch('https://cimerian.my3cx.com.br/xapi/v1/$metadata', {
-      headers: { Authorization: `Bearer ${access_token}`, Accept: 'application/xml' }
+    const periodFrom = req.query.periodFrom || '2026-02-01T00:00:00Z';
+    const periodTo   = req.query.periodTo   || '2026-04-18T23:59:59Z';
+
+    const url = `https://cimerian.my3cx.com.br/xapi/v1/CallLogData/Pbx.GetCallLogData(periodFrom=${periodFrom},periodTo=${periodTo})`;
+
+    const dataRes = await fetch(url, {
+      headers: { Authorization: `Bearer ${access_token}`, Accept: 'application/json' }
     });
 
-    const text = await r.text();
+    const statusCode = dataRes.status;
+    const raw = await dataRes.text();
 
-    // Extrai todas as Functions e Actions disponíveis
-    const functions = [...text.matchAll(/Function Name="([^"]+)"/g)].map(m => m[1]);
-    const actions = [...text.matchAll(/Action Name="([^"]+)"/g)].map(m => m[1]);
-    const entities = [...text.matchAll(/EntitySet Name="([^"]+)"/g)].map(m => m[1]);
-
-    return res.status(200).json({ functions, actions, entities });
+    return res.status(200).json({ statusCode, url, raw: raw.substring(0, 3000) });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
