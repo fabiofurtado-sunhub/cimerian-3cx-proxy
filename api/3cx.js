@@ -24,7 +24,13 @@ export default async function handler(req, res) {
     const url = `https://cimerian.my3cx.com.br/xapi/v1/CallLogData/Pbx.GetCallLogData(periodFrom=${periodFrom},periodTo=${periodTo})`;
 
     const dataRes = await fetch(url, {
-      headers: { Authorization: `Bearer ${access_token}`, Accept: 'application/json' }
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${access_token}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
     });
 
     const statusCode = dataRes.status;
