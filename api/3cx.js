@@ -16,37 +16,26 @@ export default async function handler(req, res) {
       })
     });
 
-    if (!tokenRes.ok) {
-      const err = await tokenRes.text();
-      return res.status(500).json({ error: 'Falha ao autenticar no 3CX', detail: err });
-    }
-
     const { access_token } = await tokenRes.json();
 
-    const periodFrom = req.query.periodFrom || '2026-02-01T00:00:00Z';
-    const periodTo   = req.query.periodTo   || '2026-04-18T23:59:59Z';
+    // Testa 3 formatos diferentes em paralelo
+    const bases = [
+      `https://cimerian.my3cx.com.br/xapi/v1/ReportCallLogData/Pbx.GetCallLogData(periodFrom=2026-02-01T00:00:00Z,periodTo=2026-04-18T23:59:59Z)`,
+      `https://cimerian.my3cx.com.br/xapi/v1/ReportCallLogData/Pbx.GetCallLogData?periodFrom=2026-02-01T00:00:00Z&periodTo=2026-04-18T23:59:59Z`,
+      `https://cimerian.my3cx.com.br/xapi/v1/ReportCallLogData`
+    ];
 
-    // Testa o endpoint base primeiro
-    const url = `https://cimerian.my3cx.com.br/xapi/v1/ReportCallLogData/Pbx.GetCallLogData(periodFrom='${periodFrom}',periodTo='${periodTo}')`;
+    const results = await Promise.all(bases.map(async (url) => {
+      const r = await fetch(url, {
+        headers: { Authorization: `Bearer ${access_token}`, Accept: 'application/json' }
+      });
+      const text = await r.text();
+      return { url, status: r.status, raw: text.substring(0, 500) };
+    }));
 
-    const dataRes = await fetch(url, {
-      headers: { 
-        Authorization: `Bearer ${access_token}`,
-        'Accept': 'application/json'
-      }
-    });
-
-    const statusCode = dataRes.status;
-    const rawText = await dataRes.text();
-
-    // Retorna tudo para debug
-    return res.status(200).json({ 
-      statusCode, 
-      url_usada: url,
-      raw: rawText.substring(0, 2000)
-    });
+    return res.status(200).json(results);
 
   } catch (err) {
-    return res.status(500).json({ error: 'Erro interno', detail: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
