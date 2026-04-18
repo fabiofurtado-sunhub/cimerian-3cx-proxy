@@ -14,22 +14,19 @@ export default async function handler(req, res) {
 
     const { access_token } = await tokenRes.json();
 
-    const bases = [
-      'https://cimerian.my3cx.com.br/xapi/v1/$metadata',
-      'https://cimerian.my3cx.com.br/xapi/v1/',
-      'https://cimerian.my3cx.com.br/xapi/',
-      'https://cimerian.my3cx.com.br/api/v1/',
-    ];
+    // Pega o metadata completo para achar o endpoint de call log
+    const r = await fetch('https://cimerian.my3cx.com.br/xapi/v1/$metadata', {
+      headers: { Authorization: `Bearer ${access_token}`, Accept: 'application/xml' }
+    });
 
-    const results = await Promise.all(bases.map(async (url) => {
-      const r = await fetch(url, {
-        headers: { Authorization: `Bearer ${access_token}`, Accept: 'application/json' }
-      });
-      const text = await r.text();
-      return { url, status: r.status, raw: text.substring(0, 800) };
-    }));
+    const text = await r.text();
 
-    return res.status(200).json(results);
+    // Extrai todas as Functions e Actions disponíveis
+    const functions = [...text.matchAll(/Function Name="([^"]+)"/g)].map(m => m[1]);
+    const actions = [...text.matchAll(/Action Name="([^"]+)"/g)].map(m => m[1]);
+    const entities = [...text.matchAll(/EntitySet Name="([^"]+)"/g)].map(m => m[1]);
+
+    return res.status(200).json({ functions, actions, entities });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
