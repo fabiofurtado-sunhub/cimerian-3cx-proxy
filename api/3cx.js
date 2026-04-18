@@ -21,9 +21,6 @@ export default async function handler(req, res) {
     const periodFrom = req.query.periodFrom || '2026-02-01T00:00:00Z';
     const periodTo   = req.query.periodTo   || '2026-04-18T23:59:59Z';
 
-    // Todos os parâmetros obrigatórios
-    // sourceType=0 = todos, destinationType=0 = todos, callsType=0 = todos
-    // callTimeFilterType=0 = sem filtro de horário, hidePcalls=false
     const params = [
       `periodFrom=${periodFrom}`,
       `periodTo=${periodTo}`,
@@ -41,19 +38,18 @@ export default async function handler(req, res) {
     const url = `https://cimerian.my3cx.com.br/xapi/v1/CallLogData/Pbx.GetCallLogData(${params})`;
 
     const dataRes = await fetch(url, {
-      method: 'POST',
+      method: 'GET',
       headers: { 
         Authorization: `Bearer ${access_token}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({})
+        Accept: 'application/json'
+      }
     });
 
     const statusCode = dataRes.status;
+    const allow = dataRes.headers.get('Allow') || '';
     const raw = await dataRes.text();
 
-    return res.status(200).json({ statusCode, url, raw: raw.substring(0, 3000) });
+    return res.status(200).json({ statusCode, allow, url, raw: raw.substring(0, 3000) });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
