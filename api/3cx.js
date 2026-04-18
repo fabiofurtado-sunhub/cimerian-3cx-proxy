@@ -18,31 +18,30 @@ export default async function handler(req, res) {
 
     const { access_token } = await tokenRes.json();
 
-    const periodFrom = req.query.periodFrom || '2026-02-01T00:00:00Z';
-    const periodTo   = req.query.periodTo   || '2026-04-18T23:59:59Z';
+    const url = `https://cimerian.my3cx.com.br/xapi/v1/CallLogData/Pbx.GetCallLogData`;
 
-    const params = [
-      `periodFrom=${periodFrom}`,
-      `periodTo=${periodTo}`,
-      `sourceType=0`,
-      `sourceFilter=''`,
-      `destinationType=0`,
-      `destinationFilter=''`,
-      `callsType=0`,
-      `callTimeFilterType=0`,
-      `callTimeFilterFrom=''`,
-      `callTimeFilterTo=''`,
-      `hidePcalls=false`
-    ].join(',');
-
-    const url = `https://cimerian.my3cx.com.br/xapi/v1/CallLogData/Pbx.GetCallLogData(${params})`;
+    const body = {
+      periodFrom: '2026-02-01T00:00:00Z',
+      periodTo: '2026-04-18T23:59:59Z',
+      sourceType: 0,
+      sourceFilter: '',
+      destinationType: 0,
+      destinationFilter: '',
+      callsType: 0,
+      callTimeFilterType: 0,
+      callTimeFilterFrom: '',
+      callTimeFilterTo: '',
+      hidePcalls: false
+    };
 
     const dataRes = await fetch(url, {
-      method: 'GET',
+      method: 'POST',
       headers: { 
         Authorization: `Bearer ${access_token}`,
-        Accept: 'application/json'
-      }
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
     });
 
     const statusCode = dataRes.status;
