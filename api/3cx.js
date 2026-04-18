@@ -1,5 +1,9 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
     const tokenRes = await fetch('https://cimerian.my3cx.com.br/connect/token', {
@@ -14,20 +18,42 @@ export default async function handler(req, res) {
 
     const { access_token } = await tokenRes.json();
 
-    const r = await fetch('https://cimerian.my3cx.com.br/xapi/v1/$metadata', {
-      headers: { Authorization: `Bearer ${access_token}` }
+    const periodFrom = req.query.periodFrom || '2026-02-01T00:00:00Z';
+    const periodTo   = req.query.periodTo   || '2026-04-18T23:59:59Z';
+
+    // Todos os parâmetros obrigatórios
+    // sourceType=0 = todos, destinationType=0 = todos, callsType=0 = todos
+    // callTimeFilterType=0 = sem filtro de horário, hidePcalls=false
+    const params = [
+      `periodFrom=${periodFrom}`,
+      `periodTo=${periodTo}`,
+      `sourceType=0`,
+      `sourceFilter=''`,
+      `destinationType=0`,
+      `destinationFilter=''`,
+      `callsType=0`,
+      `callTimeFilterType=0`,
+      `callTimeFilterFrom=''`,
+      `callTimeFilterTo=''`,
+      `hidePcalls=false`
+    ].join(',');
+
+    const url = `https://cimerian.my3cx.com.br/xapi/v1/CallLogData/Pbx.GetCallLogData(${params})`;
+
+    const dataRes = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${access_token}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
     });
 
-    const text = await r.text();
+    const statusCode = dataRes.status;
+    const raw = await dataRes.text();
 
-    // Extrai o bloco completo da função GetCallLogData
-    const match = text.match(/Function Name="GetCallLogData"[\s\S]{0,800}/);
-    const matchAction = text.match(/Action Name="GetCallLogData"[\s\S]{0,800}/);
-
-    return res.status(200).json({ 
-      function: match ? match[0] : 'não encontrado',
-      action: matchAction ? matchAction[0] : 'não encontrado'
-    });
+    return res.status(200).json({ statusCode, url, raw: raw.substring(0, 3000) });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
