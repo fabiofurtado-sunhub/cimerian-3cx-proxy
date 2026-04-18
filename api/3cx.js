@@ -1,9 +1,5 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
     const tokenRes = await fetch('https://cimerian.my3cx.com.br/connect/token', {
@@ -17,26 +13,23 @@ export default async function handler(req, res) {
     });
 
     const { access_token } = await tokenRes.json();
+    const h = { Authorization: `Bearer ${access_token}`, Accept: 'application/json' };
 
-    const periodFrom = req.query.periodFrom || '2026-02-01T00:00:00Z';
-    const periodTo   = req.query.periodTo   || '2026-04-18T23:59:59Z';
+    const urls = [
+      `https://cimerian.my3cx.com.br/xapi/v1/CallLogData/Pbx.GetCallLogData(periodFrom=2026-02-01T00:00:00Z,periodTo=2026-04-18T23:59:59Z)`,
+      `https://cimerian.my3cx.com.br/xapi/v1/ReportCallLogData/Pbx.GetCallLogData(periodFrom=2026-02-01T00:00:00Z,periodTo=2026-04-18T23:59:59Z)`,
+      `https://cimerian.my3cx.com.br/xapi/v1/Pbx.GetCallLogData(periodFrom=2026-02-01T00:00:00Z,periodTo=2026-04-18T23:59:59Z)`,
+      `https://cimerian.my3cx.com.br/xapi/v1/CallLogData?$filter=StartTime ge 2026-02-01T00:00:00Z`,
+      `https://cimerian.my3cx.com.br/xapi/v1/CallLogData`,
+    ];
 
-    const url = `https://cimerian.my3cx.com.br/xapi/v1/CallLogData/Pbx.GetCallLogData(periodFrom=${periodFrom},periodTo=${periodTo})`;
+    const results = await Promise.all(urls.map(async (url) => {
+      const r = await fetch(url, { headers: h });
+      const text = await r.text();
+      return { status: r.status, url, raw: text.substring(0, 300) };
+    }));
 
-    const dataRes = await fetch(url, {
-      method: 'POST',
-      headers: { 
-        Authorization: `Bearer ${access_token}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({})
-    });
-
-    const statusCode = dataRes.status;
-    const raw = await dataRes.text();
-
-    return res.status(200).json({ statusCode, url, raw: raw.substring(0, 3000) });
+    return res.status(200).json(results);
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
