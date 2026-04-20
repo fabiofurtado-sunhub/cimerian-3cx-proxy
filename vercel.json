@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/sync.js": {
+      "maxDuration": 300
+    },
+    "api/ploomes.js": {
+      "maxDuration": 30
+    },
+    "api/3cx.js": {
+      "maxDuration": 30
+    }
+  }
+}
