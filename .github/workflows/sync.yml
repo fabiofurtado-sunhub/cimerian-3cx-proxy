@@ -6,21 +6,63 @@ on:
     - cron: '0 12 * * *'  # 09:00 BRT
     - cron: '0 17 * * *'  # 14:00 BRT
     - cron: '0 22 * * *'  # 19:00 BRT
-  workflow_dispatch:        # permite rodar manualmente
+  workflow_dispatch:
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger sync
+      - name: Step 1 - Refs (pipelines, users, loss reasons)
         run: |
-          response=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-            -X GET \
+          response=$(curl -s -w "\n%{http_code}" \
             -H "x-sync-token: ${{ secrets.SYNC_SECRET }}" \
-            "https://cimerian-3cx-proxy.vercel.app/api/sync")
-          echo "HTTP status: $response"
-          cat /tmp/response.json
-          if [ "$response" != "200" ]; then
-            echo "Sync falhou com status $response"
-            exit 1
-          fi
+            "https://cimerian-3cx-proxy.vercel.app/api/sync?step=refs")
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "Status: $status | Body: $body"
+          [ "$status" = "200" ] || exit 1
+
+      - name: Step 2 - Deals (loop até concluir)
+        run: |
+          for i in $(seq 1 50); do
+            response=$(curl -s -w "\n%{http_code}" \
+              -H "x-sync-token: ${{ secrets.SYNC_SECRET }}" \
+              "https://cimerian-3cx-proxy.vercel.app/api/sync?step=deals")
+            body=$(echo "$response" | head -n -1)
+            status=$(echo "$response" | tail -n 1)
+            echo "Página $i | Status: $status | $body"
+            [ "$status" = "200" ] || exit 1
+            done=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin).get('done','false'))")
+            [ "$done" = "True" ] && break
+            sleep 1
+          done
+
+      - name: Step 3 - Tasks (loop até concluir)
+        run: |
+          for i in $(seq 1 50); do
+            response=$(curl -s -w "\n%{http_code}" \
+              -H "x-sync-token: ${{ secrets.SYNC_SECRET }}" \
+              "https://cimerian-3cx-proxy.vercel.app/api/sync?step=tasks")
+            body=$(echo "$response" | head -n -1)
+            status=$(echo "$response" | tail -n 1)
+            echo "Página $i | Status: $status | $body"
+            [ "$status" = "200" ] || exit 1
+            done=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin).get('done','false'))")
+            [ "$done" = "True" ] && break
+            sleep 1
+          done
+
+      - name: Step 4 - Quotes (loop até concluir)
+        run: |
+          for i in $(seq 1 50); do
+            response=$(curl -s -w "\n%{http_code}" \
+              -H "x-sync-token: ${{ secrets.SYNC_SECRET }}" \
+              "https://cimerian-3cx-proxy.vercel.app/api/sync?step=quotes")
+            body=$(echo "$response" | head -n -1)
+            status=$(echo "$response" | tail -n 1)
+            echo "Página $i | Status: $status | $body"
+            [ "$status" = "200" ] || exit 1
+            done=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin).get('done','false'))")
+            [ "$done" = "True" ] && break
+            sleep 1
+          done
