@@ -1,0 +1,26 @@
+name: Sync Ploomes → Supabase
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 05:00 BRT
+    - cron: '0 12 * * *'  # 09:00 BRT
+    - cron: '0 17 * * *'  # 14:00 BRT
+    - cron: '0 22 * * *'  # 19:00 BRT
+  workflow_dispatch:        # permite rodar manualmente
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger sync
+        run: |
+          response=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X GET \
+            -H "x-sync-token: ${{ secrets.SYNC_SECRET }}" \
+            "https://cimerian-3cx-proxy.vercel.app/api/sync")
+          echo "HTTP status: $response"
+          cat /tmp/response.json
+          if [ "$response" != "200" ]; then
+            echo "Sync falhou com status $response"
+            exit 1
+          fi
